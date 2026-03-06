@@ -70,7 +70,8 @@ body {
   gap: 0.75rem;
 }
 
-.nav-item:hover, .nav-item.active {
+.nav-item:hover,
+.nav-item.active {
   background-color: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
 }
@@ -100,8 +101,15 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 h1.page-title {
@@ -111,7 +119,9 @@ h1.page-title {
   letter-spacing: -1px;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   width: 100%;
   padding: 0.75rem 1rem;
   background-color: rgba(255, 255, 255, 0.03);
@@ -123,7 +133,9 @@ input, textarea, select {
   transition: border-color var(--transition-speed);
 }
 
-input:focus, textarea:focus, select:focus {
+input:focus,
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 2px var(--accent-glow);
@@ -200,7 +212,8 @@ table {
   border-collapse: collapse;
 }
 
-th, td {
+th,
+td {
   padding: 1rem;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
@@ -209,4 +222,134 @@ th, td {
 th {
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+/* Markdown body styles for chat messages */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  margin: 0.8rem 0 0.4rem 0;
+  font-weight: 600;
+  color: #fff;
+}
+
+.markdown-body h1 {
+  font-size: 1.25rem;
+}
+
+.markdown-body h2 {
+  font-size: 1.1rem;
+}
+
+.markdown-body h3 {
+  font-size: 1rem;
+}
+
+.markdown-body h4 {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.markdown-body p {
+  margin: 0.4rem 0;
+}
+
+.markdown-body strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.markdown-body em {
+  color: var(--text-secondary);
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.4rem 0;
+  padding-left: 1.5rem;
+}
+
+.markdown-body li {
+  margin: 0.3rem 0;
+}
+
+.markdown-body li::marker {
+  color: var(--accent-primary);
+}
+
+.markdown-body code {
+  background: rgba(99, 102, 241, 0.15);
+  color: #c7d2fe;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-family: 'Fira Code', 'Consolas', monospace;
+}
+
+.markdown-body pre {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.82em;
+  color: var(--text-primary);
+}
+
+.markdown-body blockquote {
+  margin: 0.5rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 3px solid var(--accent-primary);
+  background: rgba(99, 102, 241, 0.05);
+  border-radius: 0 6px 6px 0;
+  color: var(--text-secondary);
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 0.75rem 0;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.markdown-body table {
+  width: auto;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border-color);
+}
+
+.markdown-body table th {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+  color: #fff;
+}
+
+.markdown-body a {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-body a:hover {
+  color: var(--accent-secondary);
 }

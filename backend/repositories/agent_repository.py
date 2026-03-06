@@ -21,3 +21,16 @@ class AgentRepository:
         session.commit()
         session.refresh(db_agent)
         return db_agent
+
+    @staticmethod
+    def update(session: Session, agent_id: int, update_data: dict) -> Optional[Agent]:
+        agent = session.get(Agent, agent_id)
+        if not agent:
+            return None
+        for key, value in update_data.items():
+            if value is not None:
+                setattr(agent, key, value)
+        session.add(agent)
+        session.commit()
+        session.refresh(agent)
+        return agent

@@ -18,6 +18,7 @@ class Settings:
     
     # Agent execution
     AGENT_TIMEOUT_SECONDS: float = float(os.getenv("AGENT_TIMEOUT_SECONDS", "60"))
+    AGENT_CACHE_TTL: int = int(os.getenv("AGENT_CACHE_TTL", "300"))  # seconds before re-fetching permissions
     
     # JWT cache TTL (seconds) — slightly less than actual expiry to avoid edge cases
     JWT_CACHE_TTL: int = int(os.getenv("JWT_CACHE_TTL", "570"))

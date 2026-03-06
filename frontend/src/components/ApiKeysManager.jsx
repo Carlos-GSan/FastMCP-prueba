@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Plus } from 'lucide-react'
+import { Plus, RefreshCw, Loader2 } from 'lucide-react'
 
-const API_BASE = 'http://192.168.100.20:8001'
+const API_BASE = 'http://127.0.0.1:8001'
 
 export default function ApiKeysManager() {
     const [keys, setKeys] = useState([])
     const [formData, setFormData] = useState({ name: '', key: '' })
-
     const [errorMsg, setErrorMsg] = useState('')
+    const [refreshingId, setRefreshingId] = useState(null)
 
     useEffect(() => {
         fetchKeys()
@@ -33,6 +33,19 @@ export default function ApiKeysManager() {
         } catch (e) {
             setErrorMsg(e.response?.data?.detail || e.message)
             console.error(e)
+        }
+    }
+
+    const handleRefreshScopes = async (keyId) => {
+        setRefreshingId(keyId)
+        try {
+            await axios.post(`${API_BASE}/api_keys/${keyId}/refresh-scopes`)
+            fetchKeys()
+        } catch (e) {
+            alert('Error refreshing scopes: ' + (e.response?.data?.detail || e.message))
+            console.error(e)
+        } finally {
+            setRefreshingId(null)
         }
     }
 
@@ -76,6 +89,7 @@ export default function ApiKeysManager() {
                             <th>Name</th>
                             <th>Key</th>
                             <th>Allowed Scopes</th>
+                            <th style={{ width: '80px' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -93,12 +107,34 @@ export default function ApiKeysManager() {
                                         fontSize: '0.875rem'
                                     }}>{k.valid_scopes}</span>
                                 </td>
+                                <td>
+                                    <button
+                                        onClick={() => handleRefreshScopes(k.id)}
+                                        disabled={refreshingId === k.id}
+                                        title="Refresh scopes from server"
+                                        style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: 'var(--accent-primary)',
+                                            cursor: refreshingId === k.id ? 'wait' : 'pointer',
+                                            padding: '0.3rem',
+                                            borderRadius: '4px',
+                                            opacity: refreshingId === k.id ? 0.5 : 1,
+                                        }}
+                                    >
+                                        {refreshingId === k.id
+                                            ? <Loader2 size={16} className="spin" />
+                                            : <RefreshCw size={16} />
+                                        }
+                                    </button>
+                                    <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+                                </td>
                             </tr>
                         ))}
                         {keys.length === 0 && (
                             <tr>
-                                <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-                                    No API Keys configuring. Add one above.
+                                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                                    No API Keys configured. Add one above.
                                 </td>
                             </tr>
                         )}

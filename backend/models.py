@@ -27,6 +27,8 @@ class AgentBase(SQLModel):
     system_prompt: str
     selected_scopes: str = Field(description="Comma separated list of selected scopes for this Agent")
     api_key_id: Optional[int] = Field(default=None, foreign_key="apikey.id")
+    temperature: float = Field(default=0.0)
+    model: str = Field(default="gpt-4o")
 
 
 class Agent(AgentBase, table=True):
@@ -36,6 +38,14 @@ class Agent(AgentBase, table=True):
 
 class AgentCreate(AgentBase):
     pass
+
+
+class AgentUpdate(SQLModel):
+    name: Optional[str] = None
+    system_prompt: Optional[str] = None
+    selected_scopes: Optional[str] = None
+    temperature: Optional[float] = None
+    model: Optional[str] = None
 
 
 class AgentRead(AgentBase):

@@ -21,3 +21,14 @@ class ApiKeyRepository:
         session.commit()
         session.refresh(db_api_key)
         return db_api_key
+
+    @staticmethod
+    def update_scopes(session: Session, api_key_id: int, valid_scopes: str) -> Optional[ApiKey]:
+        api_key = session.get(ApiKey, api_key_id)
+        if not api_key:
+            return None
+        api_key.valid_scopes = valid_scopes
+        session.add(api_key)
+        session.commit()
+        session.refresh(api_key)
+        return api_key

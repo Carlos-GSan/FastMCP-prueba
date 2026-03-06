@@ -37,3 +37,28 @@ def list_api_keys(
     limit: int = Query(default=100, le=100),
 ):
     return ApiKeyRepository.list(session, offset=offset, limit=limit)
+
+
+@router.post("/{api_key_id}/refresh-scopes", response_model=ApiKeyRead)
+async def refresh_api_key_scopes(
+    api_key_id: int,
+    session: Session = Depends(get_session),
+):
+    """Re-discover scopes for an existing API key by re-authenticating with the server."""
+    api_key = ApiKeyRepository.get_by_id(session, api_key_id)
+    if not api_key:
+        raise HTTPException(status_code=404, detail="API Key not found")
+
+    try:
+        # Force fresh token by clearing cache
+        auth_service._cache.pop(api_key.key, None)
+        token = await auth_service.get_jwt(api_key.key)
+        scopes = auth_service.decode_scopes(token)
+        scopes_str = ", ".join(scopes) if scopes else "default_scope"
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to refresh scopes: {str(e)}",
+        )
+
+    return ApiKeyRepository.update_scopes(session, api_key_id, scopes_str)
