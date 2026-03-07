@@ -40,10 +40,14 @@ class PermissionsService:
             data = response.json()
 
         all_capabilities = data.get("capabilities", [])
-        allowed = [
-            cap for cap in all_capabilities 
-            if cap.get("scope") in selected_scopes
-        ]
+        # Wildcard '*' means all capabilities are allowed
+        if "*" in selected_scopes:
+            allowed = all_capabilities
+        else:
+            allowed = [
+                cap for cap in all_capabilities 
+                if cap.get("scope") in selected_scopes
+            ]
 
         # Log summary
         scope_counts = Counter(cap["scope"] for cap in allowed)
@@ -55,6 +59,27 @@ class PermissionsService:
             logger.info(f"[Permissions]   {scope}: {count}")
 
         return allowed
+
+    async def fetch_all_scopes(self, api_key: str) -> List[str]:
+        """Fetch all available scope names for an API key from /my-permissions.
+        
+        Used to resolve wildcard '*' into actual scope names.
+        """
+        jwt_token = await self._auth.get_jwt(api_key)
+        url = f"{settings.API_BASE_URL}{settings.PERMISSIONS_PATH}"
+        headers = {"Authorization": f"Bearer {jwt_token}"}
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers)
+            if response.status_code != 200:
+                logger.warning(f"[Permissions] Could not resolve scopes: {response.status_code}")
+                return ["*"]
+            data = response.json()
+
+        capabilities = data.get("capabilities", [])
+        scopes = sorted(set(cap["scope"] for cap in capabilities if cap.get("scope")))
+        logger.info(f"[Permissions] Resolved '*' → {len(scopes)} scopes: {', '.join(scopes)}")
+        return scopes
 
     async def call_api(
         self,

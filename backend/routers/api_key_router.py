@@ -6,6 +6,7 @@ from ..database import get_session
 from ..models import ApiKeyCreate, ApiKeyRead
 from ..repositories.api_key_repository import ApiKeyRepository
 from ..services.auth_service import auth_service
+from ..services.permissions_service import permissions_service
 
 router = APIRouter(prefix="/api_keys", tags=["API Keys"])
 
@@ -18,6 +19,9 @@ async def create_api_key(
     try:
         token = await auth_service.get_jwt(api_key.key)
         scopes = auth_service.decode_scopes(token)
+        # Resolve wildcard '*' into actual scope names
+        if "*" in scopes:
+            scopes = await permissions_service.fetch_all_scopes(api_key.key)
         scopes_str = ", ".join(scopes) if scopes else "default_scope"
     except Exception as e:
         raise HTTPException(
@@ -54,6 +58,9 @@ async def refresh_api_key_scopes(
         auth_service._cache.pop(api_key.key, None)
         token = await auth_service.get_jwt(api_key.key)
         scopes = auth_service.decode_scopes(token)
+        # Resolve wildcard '*' into actual scope names
+        if "*" in scopes:
+            scopes = await permissions_service.fetch_all_scopes(api_key.key)
         scopes_str = ", ".join(scopes) if scopes else "default_scope"
     except Exception as e:
         raise HTTPException(
