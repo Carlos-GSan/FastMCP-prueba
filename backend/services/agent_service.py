@@ -80,21 +80,38 @@ class AgentService:
 
         start_time = time.time()
         error_msg = None
+        max_retries = 3
+        result = None
 
-        try:
-            result = await asyncio.wait_for(
-                agent_executor.ainvoke(
-                    {"messages": messages},
-                    config={"configurable": {"thread_id": conversation_id}},
-                ),
-                timeout=settings.AGENT_TIMEOUT_SECONDS,
-            )
-        except asyncio.TimeoutError:
-            error_msg = "Request timed out while waiting for agent response."
-            return {"response": error_msg, "metrics": {"errors": [error_msg], "duration_seconds": round(time.time() - start_time, 2)}}
-        except Exception as e:
-            logger.exception("Agent execution failed")
-            error_msg = f"An error occurred during agent execution: {str(e)}"
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = await asyncio.wait_for(
+                    agent_executor.ainvoke(
+                        {"messages": messages},
+                        config={"configurable": {"thread_id": conversation_id}},
+                    ),
+                    timeout=settings.AGENT_TIMEOUT_SECONDS,
+                )
+                break  # Success — exit retry loop
+            except asyncio.TimeoutError:
+                error_msg = "Request timed out while waiting for agent response."
+                return {"response": error_msg, "metrics": {"errors": [error_msg], "duration_seconds": round(time.time() - start_time, 2)}}
+            except Exception as e:
+                error_str = str(e)
+                if "429" in error_str and attempt < max_retries:
+                    # Extract wait time from error message (e.g. "Please try again in 11.172s")
+                    import re
+                    match = re.search(r"try again in (\d+\.?\d*)s", error_str)
+                    wait_time = float(match.group(1)) + 1.0 if match else 5.0
+                    logger.warning(f"[Agent] Rate limit hit (attempt {attempt}/{max_retries}). Waiting {wait_time:.1f}s before retry...")
+                    await asyncio.sleep(wait_time)
+                    continue
+                logger.exception("Agent execution failed")
+                error_msg = f"An error occurred during agent execution: {error_str}"
+                return {"response": error_msg, "metrics": {"errors": [error_msg], "duration_seconds": round(time.time() - start_time, 2)}}
+
+        if result is None:
+            error_msg = "Agent execution failed after all retry attempts."
             return {"response": error_msg, "metrics": {"errors": [error_msg], "duration_seconds": round(time.time() - start_time, 2)}}
 
         duration = round(time.time() - start_time, 2)
@@ -163,7 +180,7 @@ class AgentService:
         logger.info(f"[Agent] {len(langchain_tools)} tools for '{agent.name}' (model={agent.model}, temp={agent.temperature})")
 
         # Create LLM and agent with per-agent model and temperature
-        llm = ChatOpenAI(model=agent.model, temperature=agent.temperature)
+        llm = ChatOpenAI(model=agent.model, temperature=agent.temperature, max_retries=3)
         agent_executor = create_react_agent(
             llm,
             langchain_tools,

@@ -50,3 +50,34 @@ class AgentUpdate(SQLModel):
 
 class AgentRead(AgentBase):
     id: int
+
+
+# ─── Channel (Telegram / Twilio) ──────────────────────────────
+
+class ChannelBase(SQLModel):
+    type: str = Field(index=True, description="Channel type: 'telegram' or 'twilio'")
+    agent_id: int = Field(foreign_key="agent.id", index=True)
+    enabled: bool = Field(default=True)
+    config: str = Field(default="{}", description="JSON string with channel credentials")
+
+
+class Channel(ChannelBase, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    agent: Optional[Agent] = Relationship()
+
+
+class ChannelCreate(SQLModel):
+    type: str
+    agent_id: int
+    config: str = "{}"
+
+
+class ChannelUpdate(SQLModel):
+    agent_id: Optional[int] = None
+    enabled: Optional[bool] = None
+    config: Optional[str] = None
+
+
+class ChannelRead(ChannelBase):
+    id: int
+

@@ -7,6 +7,10 @@ Dashboard para gestionar agentes LLM que interactúan con tu backend de aplicaci
 ```
 Frontend (React + Vite)  →  Backend (FastAPI + FastMCP)  →  App Backend (Django, etc.)
        :5173                       :8001                       tu-backend
+                                      │
+                              ┌───────┴────────┐
+                         Telegram Bot      Twilio Webhook
+                         (polling)         /webhooks/twilio/{id}
 ```
 
 El backend sigue principios **SOLID** con capas separadas:
@@ -99,18 +103,19 @@ El dashboard estará en `http://localhost:5173`
 
 ### Interfaz Web (Dashboard)
 
-El dashboard tiene tres secciones accesibles desde el sidebar:
+El dashboard tiene cuatro secciones accesibles desde el sidebar:
 
 | Sección | Descripción |
 |---|---|
 | **API Keys** | Registrar, ver y refrescar scopes de API keys del backend externo |
 | **Agents** | Crear y configurar agentes LLM con scopes, modelo, temperatura y system prompt |
 | **Chat** | Chatear en tiempo real con los agentes configurados |
+| **Channels** | Conectar agentes a Telegram y Twilio (SMS/WhatsApp) |
 
 ### Flujo de trabajo
 
 ```
-1. Registrar API Key  →  2. Crear Agente  →  3. Chatear
+1. Registrar API Key  →  2. Crear Agente  →  3. Chatear o Conectar a un Canal
 ```
 
 #### 1. Registrar una API Key
@@ -174,6 +179,86 @@ La respuesta incluye el texto del agente y métricas de ejecución:
 }
 ```
 
+#### 4. Conectar un Agente a un Canal (Telegram / Twilio)
+
+Desde el dashboard, ve a la sección **Channels** para conectar agentes a canales externos.
+
+##### Telegram
+
+1. **Crear un bot** en Telegram:
+   - Abre Telegram y busca [@BotFather](https://t.me/BotFather)
+   - Envía `/newbot` y sigue las instrucciones
+   - Copia el **Bot Token** que te da (ej: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`)
+
+2. **Crear el canal** en el dashboard:
+   - Ve a **Channels** → **New Channel**
+   - Selecciona **Telegram** como tipo
+   - Pega el Bot Token
+   - Selecciona el agente que responderá los mensajes
+   - Click **Create Channel**
+
+3. **¡Listo!** El bot se inicia automáticamente en modo polling. Envíale un mensaje desde Telegram y recibirás la respuesta del agente. Funciona en local sin necesidad de URL pública.
+
+O por API:
+
+```bash
+curl -X POST http://localhost:8001/channels/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "telegram",
+    "agent_id": 1,
+    "config": "{\"bot_token\": \"TU_BOT_TOKEN\"}"
+  }'
+```
+
+##### Twilio (SMS / WhatsApp)
+
+1. **Obtener credenciales** de [twilio.com](https://www.twilio.com):
+   - **Account SID**: En el Dashboard de Twilio (empieza con `AC...`)
+   - **Auth Token**: En el Dashboard de Twilio (click "Show")
+   - **Phone Number**: Compra un número en **Phone Numbers** → **Buy a Number**, o usa el sandbox de WhatsApp
+
+2. **Crear el canal** en el dashboard:
+   - Ve a **Channels** → **New Channel**
+   - Selecciona **Twilio (SMS/WhatsApp)** como tipo
+   - Ingresa Account SID, Auth Token y Phone Number
+   - Selecciona el agente que responderá
+   - Click **Create Channel** → anota el `channel_id` devuelto
+
+3. **Configurar el webhook** en la consola de Twilio:
+   - Ve a **Phone Numbers** → click en tu número
+   - En **"A message comes in"**, pon:
+     ```
+     https://TU-DOMINIO/webhooks/twilio/{channel_id}
+     ```
+   - Ejemplo: `https://mcp.tudominio.com/webhooks/twilio/1`
+
+4. **Para pruebas en local** usa [ngrok](https://ngrok.com) para exponer tu servidor:
+   ```bash
+   ngrok http 8001
+   # Obtiene URL como: https://abc123.ngrok.io
+   # Configura en Twilio: https://abc123.ngrok.io/webhooks/twilio/{channel_id}
+   ```
+
+O por API:
+
+```bash
+curl -X POST http://localhost:8001/channels/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "twilio",
+    "agent_id": 1,
+    "config": "{\"account_sid\": \"AC...\", \"auth_token\": \"TU_AUTH_TOKEN\", \"phone_number\": \"+1234567890\"}"
+  }'
+```
+
+##### Gestión de Canales
+
+- **Activar/desactivar**: `POST /channels/{id}/toggle` — desactiva un canal sin eliminarlo
+- **Editar**: `PUT /channels/{id}` — cambiar el agente asignado o las credenciales
+- **Eliminar**: `DELETE /channels/{id}` — elimina el canal y detiene el bot si es Telegram
+- **Cambiar agente**: Puedes reasignar un canal a otro agente en cualquier momento desde el dashboard
+
 ---
 
 ## API Reference
@@ -206,6 +291,22 @@ La respuesta incluye el texto del agente y métricas de ejecución:
 | Método | Endpoint | Descripción |
 |---|---|---|
 | `GET/POST/DELETE` | `/mcp/{agent_id}` | Endpoint MCP Streamable HTTP para clientes MCP externos |
+
+### Channels
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `POST` | `/channels/` | Crear un canal (Telegram o Twilio) |
+| `GET` | `/channels/` | Listar todos los canales |
+| `PUT` | `/channels/{id}` | Actualizar configuración de un canal |
+| `DELETE` | `/channels/{id}` | Eliminar un canal |
+| `POST` | `/channels/{id}/toggle` | Activar/desactivar un canal |
+
+### Webhooks
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `POST` | `/webhooks/twilio/{channel_id}` | Webhook para recibir mensajes de Twilio (SMS/WhatsApp) |
 
 ---
 
@@ -253,6 +354,8 @@ Respuesta + Métricas (tokens, tools usados, duración, errores)
 | `permissions_service.py` | Consultar `/my-permissions`, filtrar capabilities por scopes, ejecutar API calls autenticados, y resolver scopes wildcard |
 | `mcp_service.py` | Construir instancias FastMCP con tools dinámicas basadas en capabilities |
 | `agent_service.py` | Orquestar la ejecución del LLM con LangGraph, gestionar cache de executors y memoria de conversaciones |
+| `telegram_service.py` | Gestionar bots de Telegram (start/stop/polling), reenviar mensajes a agentes |
+| `twilio_service.py` | Procesar mensajes entrantes de Twilio, generar respuestas TwiML |
 
 ### Manejo de Scopes
 
@@ -293,10 +396,11 @@ El frontend es una SPA (Single Page Application) construida con **React + Vite**
 
 | Componente | Descripción |
 |---|---|
-| `App.jsx` | Layout principal con sidebar de navegación |
+| `App.jsx` | Layout principal con sidebar de navegación (colapsable) |
 | `ApiKeysManager.jsx` | CRUD de API keys con botón de refresh scopes |
 | `AgentsManager.jsx` | CRUD de agentes con selector de scopes, modelo y temperatura |
 | `Chat.jsx` | Chat interactivo con renderizado Markdown, imágenes y panel de métricas |
+| `ChannelsManager.jsx` | Gestión de canales Telegram/Twilio con toggle, edición y eliminación |
 
 ### Dependencias principales
 
@@ -313,31 +417,37 @@ El frontend es una SPA (Single Page Application) construida con **React + Vite**
 ```
 prueba_dashboard/
 ├── backend/
-│   ├── main.py                      # FastAPI app + lifespan
+│   ├── main.py                      # FastAPI app + lifespan + Telegram startup
 │   ├── config.py                    # Settings centralizados (.env)
 │   ├── database.py                  # SQLite + SQLModel engine
-│   ├── models.py                    # Entidades: Agent, ApiKey + schemas
+│   ├── models.py                    # Entidades: Agent, ApiKey, Channel + schemas
 │   ├── repositories/
 │   │   ├── api_key_repository.py    # CRUD ApiKey
-│   │   └── agent_repository.py      # CRUD Agent
+│   │   ├── agent_repository.py      # CRUD Agent
+│   │   └── channel_repository.py    # CRUD Channel
 │   ├── services/
 │   │   ├── auth_service.py          # JWT fetch + cache
 │   │   ├── permissions_service.py   # /my-permissions, scope resolution, API calls
 │   │   ├── mcp_service.py           # FastMCP tool builder
-│   │   └── agent_service.py         # LangGraph ReAct agent orchestration
+│   │   ├── agent_service.py         # LangGraph ReAct agent orchestration
+│   │   ├── telegram_service.py      # Telegram bot management (polling)
+│   │   └── twilio_service.py        # Twilio SMS/WhatsApp processing
 │   └── routers/
 │       ├── api_key_router.py        # POST/GET /api_keys/, refresh-scopes
 │       ├── agent_router.py          # POST/GET/PUT /agents/
 │       ├── chat_router.py           # POST /chat/{id}, DELETE conversations
-│       └── mcp_router.py            # Streamable HTTP MCP endpoint
+│       ├── mcp_router.py            # Streamable HTTP MCP endpoint
+│       ├── channel_router.py        # CRUD /channels/, toggle
+│       └── webhook_router.py        # POST /webhooks/twilio/{id}
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx                  # Layout + routing
+│   │   ├── App.jsx                  # Layout + routing (sidebar colapsable)
 │   │   ├── index.css                # Estilos globales (dark theme)
 │   │   └── components/
 │   │       ├── ApiKeysManager.jsx   # Gestión de API keys
 │   │       ├── AgentsManager.jsx    # Gestión de agentes
-│   │       └── Chat.jsx             # Chat con Markdown + métricas
+│   │       ├── Chat.jsx             # Chat con Markdown + métricas
+│   │       └── ChannelsManager.jsx  # Gestión de canales Telegram/Twilio
 │   └── package.json
 ├── docs/
 │   └── mcp_integration_guide.md     # Guía de integración MCP completa
