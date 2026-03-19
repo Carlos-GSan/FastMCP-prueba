@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Plus, Radio, Trash2, Power, PowerOff, Edit3, Save, X, Bot, Send } from 'lucide-react'
 
-const API_BASE = 'http://127.0.0.1:8001'
+const API_BASE = 'http://127.0.0.1:8000'
 
 const CHANNEL_TYPES = [
     { value: 'telegram', label: 'Telegram', icon: '🤖', color: '#2AABEE' },

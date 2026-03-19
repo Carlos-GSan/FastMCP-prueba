@@ -1,7 +1,7 @@
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, BackgroundTasks
 from sqlmodel import Session
 
 from ..database import get_session
@@ -14,7 +14,12 @@ router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
 
 
 @router.post("/twilio/{channel_id}")
-async def twilio_webhook(channel_id: int, request: Request, session: Session = Depends(get_session)):
+async def twilio_webhook(
+    channel_id: int, 
+    request: Request, 
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session)
+):
     """Receive incoming SMS/WhatsApp messages from Twilio.
 
     Twilio sends form-encoded data with fields like:
@@ -33,26 +38,25 @@ async def twilio_webhook(channel_id: int, request: Request, session: Session = D
     if channel.type != "twilio":
         raise HTTPException(status_code=400, detail="Channel is not a Twilio channel")
 
+    config = json.loads(channel.config) if channel.config else {}
+
     # Parse Twilio form data
     form_data = await request.form()
     body = form_data.get("Body", "")
     from_number = form_data.get("From", "unknown")
+    to_number = form_data.get("To", config.get("phone_number", ""))
 
-    if not body:
-        return Response(
-            content=twilio_service.build_twiml_response("Empty message received."),
-            media_type="text/xml",
+    if body:
+        # Process through agent asynchronously in background
+        background_tasks.add_task(
+            twilio_service.process_and_send_async,
+            channel_id=channel.id,
+            agent_id=channel.agent_id,
+            from_number=from_number,
+            to_number=to_number,
+            body=body,
+            config=config
         )
 
-    # Process through agent
-    response_text = await twilio_service.process_incoming(
-        channel_id=channel.id,
-        agent_id=channel.agent_id,
-        from_number=from_number,
-        body=body,
-    )
-
-    return Response(
-        content=twilio_service.build_twiml_response(response_text),
-        media_type="text/xml",
-    )
+    # Return empty response immediately (200 OK) to avoid Twilio 15-second timeout
+    return Response(content="<Response></Response>", media_type="text/xml")

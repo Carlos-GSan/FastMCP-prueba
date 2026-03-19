@@ -12,6 +12,7 @@ from .routers.chat_router import router as chat_router
 from .routers.mcp_router import router as mcp_router
 from .routers.channel_router import router as channel_router
 from .routers.webhook_router import router as webhook_router
+from .routers.media_router import router as media_router
 from .services.telegram_service import telegram_service
 
 # Configure logging
@@ -60,6 +61,7 @@ app.include_router(chat_router)
 app.include_router(mcp_router)
 app.include_router(channel_router)
 app.include_router(webhook_router)
+app.include_router(media_router)
 
 
 @app.get("/")

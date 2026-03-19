@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.tools import StructuredTool
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage, trim_messages
 from pydantic import BaseModel, Field
 
 from ..config import settings
@@ -133,6 +133,47 @@ class AgentService:
             for key in keys_to_remove:
                 del self._checkpointer.storage[key]
 
+    def get_all_conversations(self) -> list[str]:
+        """Return a list of all active conversation IDs."""
+        if hasattr(self._checkpointer, 'storage'):
+            keys = set()
+            for k in self._checkpointer.storage.keys():
+                if isinstance(k, tuple) and len(k) > 0:
+                    keys.add(k[0])
+                elif isinstance(k, str):
+                    keys.add(k)
+            return sorted(list(keys))
+        return []
+
+    def get_conversation_history(self, conversation_id: str) -> list[dict]:
+        """Retrieve the message history for a given conversation ID."""
+        config = {"configurable": {"thread_id": conversation_id}}
+        try:
+            # get_tuple gets the latest checkpoint state
+            ckpt = self._checkpointer.get_tuple(config)
+            if ckpt and ckpt.checkpoint:
+                # the state dictionary is typically in 'channel_values'
+                state = ckpt.checkpoint.get("channel_values", {})
+                messages = state.get("messages", [])
+                
+                history = []
+                for msg in messages:
+                    msg_type = "unknown"
+                    if "AI" in type(msg).__name__: msg_type = "agent"
+                    elif "Human" in type(msg).__name__: msg_type = "user"
+                    elif "System" in type(msg).__name__: msg_type = "system"
+                    elif "Tool" in type(msg).__name__: msg_type = "tool"
+                    
+                    history.append({
+                        "role": msg_type,
+                        "content": msg.content[:2000] if type(msg.content) == str else str(msg.content)[:2000],
+                        "name": getattr(msg, "name", None)
+                    })
+                return history
+        except Exception as e:
+            logger.error(f"[Agent] Error getting history for {conversation_id}: {e}")
+        return []
+
     def invalidate_agent_cache(self, agent_id: int) -> None:
         """Remove all cached executors for a given agent (e.g. after config update)."""
         keys_to_remove = [k for k in self._agent_cache if k.startswith(f"{agent_id}:")]
@@ -181,11 +222,29 @@ class AgentService:
 
         # Create LLM and agent with per-agent model and temperature
         llm = ChatOpenAI(model=agent.model, temperature=agent.temperature, max_retries=3)
+
+        # Build a prompt function that trims history to avoid exceeding token limits.
+        # Keeps system message + last N messages (last 10 human/ai/tool exchanges).
+        def trimmed_prompt(state):
+            messages = state["messages"]
+            trimmed = trim_messages(
+                messages,
+                max_tokens=8000,
+                strategy="last",
+                token_counter=llm,
+                start_on="human",
+                include_system=True,
+            )
+            # Ensure system prompt is always first
+            if not trimmed or not isinstance(trimmed[0], SystemMessage):
+                trimmed.insert(0, SystemMessage(content=system_content))
+            return trimmed
+
         agent_executor = create_react_agent(
             llm,
             langchain_tools,
             checkpointer=self._checkpointer,
-            prompt=system_content,
+            prompt=trimmed_prompt,
         )
 
         self._agent_cache[cache_key] = (agent_executor, time.time())
@@ -275,6 +334,18 @@ class AgentService:
                         "body": body,
                     }},
                 )
+                
+                # Result is usually a CallToolResult with a list of TextContent
+                # Extracting raw text cleans the JSON context for the LLM
+                if hasattr(result, "content") and isinstance(result.content, list):
+                    texts = []
+                    for c in result.content:
+                        if hasattr(c, "text"):
+                            texts.append(c.text)
+                        else:
+                            texts.append(str(c))
+                    return "\n".join(texts)
+                
                 return str(result)
 
             executor.__name__ = tool_name

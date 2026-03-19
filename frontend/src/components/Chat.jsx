@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Send, Bot, User, Loader2, RefreshCw, ChevronDown, ChevronUp, Clock, Cpu, Wrench, AlertTriangle } from 'lucide-react'
 
-const API_BASE = 'http://127.0.0.1:8001'
+const API_BASE = 'http://127.0.0.1:8000'
 
 function MetricsPanel({ metrics }) {
     const [isOpen, setIsOpen] = useState(false)

@@ -4,6 +4,7 @@ import AgentsManager from './components/AgentsManager'
 import ApiKeysManager from './components/ApiKeysManager'
 import Chat from './components/Chat'
 import ChannelsManager from './components/ChannelsManager'
+import ConversationsViewer from './components/ConversationsViewer'
 import './index.css'
 
 function App() {
@@ -54,6 +55,15 @@ function App() {
             <Radio size={18} />
             <span className="sidebar-label">Channels</span>
           </div>
+
+          <div
+            className={`nav-item ${activeTab === 'conversations' ? 'active' : ''}`}
+            onClick={() => setActiveTab('conversations')}
+            title="Historial"
+          >
+            <MessageSquare size={18} />
+            <span className="sidebar-label">Historial (Móvil)</span>
+          </div>
         </nav>
 
         <button
@@ -70,6 +80,7 @@ function App() {
         {activeTab === 'agents' && <AgentsManager />}
         {activeTab === 'chat' && <Chat />}
         {activeTab === 'channels' && <ChannelsManager />}
+        {activeTab === 'conversations' && <ConversationsViewer />}
       </div>
     </div>
   )

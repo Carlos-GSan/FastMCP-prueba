@@ -43,6 +43,17 @@ async def chat_with_agent(
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/chat/conversations")
+def list_conversations():
+    """List all active conversation thread IDs."""
+    return {"conversations": agent_service.get_all_conversations()}
+
+@router.get("/chat/conversations/{conversation_id}")
+def get_conversation_history(conversation_id: str):
+    """Get the full message history of a specific conversation."""
+    history = agent_service.get_conversation_history(conversation_id)
+    return {"conversation_id": conversation_id, "history": history}
+
 
 @router.delete("/chat/conversations/{conversation_id}")
 def clear_conversation(conversation_id: str):

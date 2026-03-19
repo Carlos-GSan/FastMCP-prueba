@@ -22,6 +22,11 @@ class Settings:
     
     # JWT cache TTL (seconds) — slightly less than actual expiry to avoid edge cases
     JWT_CACHE_TTL: int = int(os.getenv("JWT_CACHE_TTL", "570"))
+    
+    # Media conversion
+    CDN_BASE_URL: str = os.getenv("CDN_BASE_URL", "https://backend.efficientai.es")
+    MEDIA_CACHE_DIR: str = os.getenv("MEDIA_CACHE_DIR", "/tmp/media_cache")
+    MEDIA_JPG_QUALITY: int = int(os.getenv("MEDIA_JPG_QUALITY", "85"))
 
 
 settings = Settings()

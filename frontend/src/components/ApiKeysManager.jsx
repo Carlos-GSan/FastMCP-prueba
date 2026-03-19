@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Plus, RefreshCw, Loader2 } from 'lucide-react'
 
-const API_BASE = 'http://127.0.0.1:8001'
+const API_BASE = 'http://127.0.0.1:8000'
 
 export default function ApiKeysManager() {
     const [keys, setKeys] = useState([])

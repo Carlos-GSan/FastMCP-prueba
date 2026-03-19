@@ -2,9 +2,14 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Plus, Key, Edit3, Save, X, Thermometer, Cpu } from 'lucide-react'
 
-const API_BASE = 'http://127.0.0.1:8001'
+const API_BASE = 'http://127.0.0.1:8000'
 
 const AVAILABLE_MODELS = [
+    'o3-mini',
+    'o1-mini',
+    'o1',
+    'o1-preview',
+    'gpt-4.5-preview',
     'gpt-4o',
     'gpt-4o-mini',
     'gpt-4-turbo',
